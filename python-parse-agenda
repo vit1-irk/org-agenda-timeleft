@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+
+import os
+import datetime
+from operator import itemgetter
+from termcolor import colored
+
+def timedeltastr(td):
+        # remove fractions of second from timedelta
+        timestring = str(td).split(".")[:-1]
+        return ".".join(timestring)
+
+f = open("/tmp/agenda").read().splitlines()
+
+needed_events = []
+
+for line in f:
+        category, head, _type, todo, tags, date, time, extra = line.split(",")[:8]
+
+        if _type != "scheduled":
+                continue
+
+        date = date.split("-")
+        time = time.replace(".", "").split(":")
+
+        date = list(map(int, date))
+        time = list(map(int, time))
+
+        dt = datetime.datetime(date[0], date[1], date[2], time[0], time[1], 0)
+        #print(dt)
+        needed_events.append([head, dt, extra])
+
+first_ev = needed_events[0]
+now = datetime.datetime.now()
+
+delta = first_ev[1] - now
+deltaexit = delta - datetime.timedelta(hours=1)
+
+print(colored(first_ev[0], "cyan", attrs=["bold"]) + "\n")
+print("Time until event started")
+print(colored(timedeltastr(delta), "yellow", attrs=["bold"]))
+
+print("\nTime until you leave home")
+print(colored(timedeltastr(deltaexit), "yellow", attrs=["bold"]))
+
+hours_left = int(deltaexit.total_seconds() // 3600)
+
+try:
+        hrs = int(open("/tmp/agenda-left").read())
+
+        if hours_left < 3 and hours_left < hrs:
+                os.system("notify-send \"" + first_ev[0] + "\n" + str(hours_left) + " часов осталось\"")
+                os.system("kdeconnect-cli --ring -n \"Your Device\"")
+except Exception as e:
+        hrs = None
+        pass
+
+if hours_left != hrs:
+        f2 = open("/tmp/agenda-left", "w")
+        f2.write(str(hours_left))
+        f2.close()
